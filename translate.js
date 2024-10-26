@@ -2,6 +2,15 @@ import fs from 'node:fs';
 import config from './translate/config.js';
 
 const baseUrl = 'https://libretranslate.com';
+const mcmLanguages = {
+	en: 'ENGLISH',
+	de: 'GERMAN',
+	fr: 'FRENCH',
+	it: 'ITALIAN',
+	pl: 'POLISH',
+	ru: 'RUSSIAN',
+	zt: 'CHINESE',
+};
 const apiKeys = config.apiKeys;
 const nextRequest = {};
 let currentAPIKey = Object.keys(apiKeys)[0];
@@ -45,10 +54,13 @@ for (const project of Object.keys(config.projects)) {
 	for (const target of config.projects[project]) {
 		const translated = {};
 		const cache = {};
+		const caches = {};
+		const overwrites = [];
 
 		for (const file of fs.readdirSync('./translate/cache', 'utf-8')) {
 			if (file.endsWith('.'+target+'.json') && file.startsWith(project + '.')) {
 				const oldData = JSON.parse(fs.readFileSync('./translate/cache/'+file, 'utf-8'));
+				caches[file] = oldData;
 				for (const element of Object.keys(oldData)){
 					translated[element] = oldData[element];
 					cache[element] = oldData[element];
@@ -56,32 +68,29 @@ for (const project of Object.keys(config.projects)) {
 			}
 		}
 
-		if (fs.existsSync('./translate/data/'+project+'.json')) {
-			const oldData = JSON.parse(fs.readFileSync('./translate/data/'+project+'.json', 'utf-8'));
+		if (fs.existsSync('./translate/overwrites/'+project+'.json')) {
+			const oldData = JSON.parse(fs.readFileSync('./translate/overwrites/'+project+'.json', 'utf-8'));
 			for (const element of oldData) {
+				overwrites.push(element.from);
 				translated[element.from] = element[target] || element.from;
-				if (typeof cache[element.from]) {
+				if (typeof cache[element.from] === 'string') {
 					delete cache[element.from];
 				}
 			}
 		}
 
 		for (const file of fs.readdirSync('./translate/from', 'utf-8')) {
-			const fileCache = {};
 			if (file.endsWith('.json') && file.startsWith(project + '.')) {
 				const data = JSON.parse(fs.readFileSync('./translate/from/'+file, 'utf-8'));
 			
 				const out = [];
 				const name = file.replace(/.json$/, '.')+target+'.json';
+				const fileCache = caches[name] || {};
 
-				let pos = 0;
-				if (fs.existsSync('./translate/to/'+name)) {
-					pos = JSON.parse(fs.readFileSync('./translate/to/'+name, 'utf-8')).length -1;
-				}
 				const start = Date.now();
 				for (const element of data) {
 					const perc = out.length/data.length;
-					const remainder = out.length > pos ? (Date.now() - start)/(out.length-pos) * (data.length-pos)/1000 : '';
+					const remainder = out.length > 0 ? (Date.now() - start)/out.length * data.length/1000 : '';
 					console.clear();
 					console.log('[   ] '+file+'(en => '+target+') => ' + Math.floor(perc * 10000)/100 + '% ETA '+Math.floor(remainder/3600)+':'+Math.floor(remainder%3600/60)+':'+Math.floor(remainder%60));
 					let tryCount = 0;
@@ -127,7 +136,7 @@ for (const project of Object.keys(config.projects)) {
 						}
 						tryCount++;
 					}
-					if (typeof cache[element.string] === 'undefined' || cache[element.string] !== translated[element.string]) {
+					if (!overwrites.includes(element.string) && (typeof cache[element.string] === 'undefined' || cache[element.string] !== translated[element.string])) {
 					    cache[element.string] = translated[element.string];
 					    fileCache[element.string] = translated[element.string];
 						fs.writeFileSync(
@@ -139,8 +148,26 @@ for (const project of Object.keys(config.projects)) {
 				    const newEl = {...element};
 				    newEl.string = translated[element.string];
 					out.push(newEl);
+				}
+				if (name.includes('.mcm.') && typeof mcmLanguages[target] === 'string') {
+					let output = '';
+					for (const el of out) {
+						output += el.key + '\t' + el.string + '\n';
+					}
 					fs.writeFileSync(
-						'./translate/to/'+name,
+						'./translate/to/'+name
+							.replace(/.mcm./, '.')
+							.replace(/.json$/, '.txt')
+							.replace('.' + target, '_' + mcmLanguages[target]),
+						output,
+						'utf-8'
+					);
+				} else if (!name.includes('.mcm.')) {
+					if (!fs.existsSync('./translate/to/' + target)) {
+						fs.mkdirSync('./translate/to/' + target);
+					}
+					fs.writeFileSync(
+						'./translate/to/' + target + '/'+file,
 						JSON.stringify(out, null, 2),
 						'utf-8'
 					);
@@ -149,3 +176,4 @@ for (const project of Object.keys(config.projects)) {
 		}
 	}
 }
+process.exit(0);
