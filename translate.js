@@ -67,6 +67,7 @@ for (const project of Object.keys(config.projects)) {
 		}
 
 		for (const file of fs.readdirSync('./translate/from', 'utf-8')) {
+			const fileCache = {};
 			if (file.endsWith('.json') && file.startsWith(project + '.')) {
 				const data = JSON.parse(fs.readFileSync('./translate/from/'+file, 'utf-8'));
 			
@@ -128,9 +129,10 @@ for (const project of Object.keys(config.projects)) {
 					}
 					if (typeof cache[element.string] === 'undefined' ) {
 					    cache[element.string] = translated[element.string];
+					    fileCache[element.string] = translated[element.string];
 						fs.writeFileSync(
 							'./translate/cache/'+name,
-							JSON.stringify(cache, null, 2),
+							JSON.stringify(fileCache, null, 2),
 							'utf-8'
 						);
 					}
