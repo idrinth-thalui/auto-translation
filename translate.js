@@ -127,7 +127,7 @@ for (const project of Object.keys(config.projects)) {
 						}
 						tryCount++;
 					}
-					if (typeof cache[element.string] === 'undefined' ) {
+					if (typeof cache[element.string] === 'undefined' || cache[element.string] !== translated[element.string]) {
 					    cache[element.string] = translated[element.string];
 					    fileCache[element.string] = translated[element.string];
 						fs.writeFileSync(
