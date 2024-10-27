@@ -50,6 +50,16 @@ for (const key of Object.keys(apiKeys)) {
 	nextRequest[key] = Date.now();
 }
 
+const handler = [() => {}, false];
+const handleWrite = () => {
+	if (handler[1]) {
+		handler[0]();
+	}
+	process.exit(0);
+}
+process.on('SIGINT', handleWrite);
+process.on('SIGTERM', handleWrite);
+
 for (const project of Object.keys(config.projects)) {
 	for (const target of config.projects[project]) {
 		const translated = {};
@@ -86,6 +96,16 @@ for (const project of Object.keys(config.projects)) {
 				const out = [];
 				const name = file.replace(/.json$/, '.')+target+'.json';
 				const fileCache = caches[name] || {};
+				const write = () => {
+					fs.writeFileSync(
+						'./translate/cache/'+name,
+						JSON.stringify(fileCache, null, 2),
+						'utf-8'
+					);
+				};
+
+				handler[0] = write;
+				handler[1] = false;
 
 				const start = Date.now();
 				for (const element of data) {
@@ -139,11 +159,7 @@ for (const project of Object.keys(config.projects)) {
 					if (!overwrites.includes(element.string) && (typeof cache[element.string] === 'undefined' || cache[element.string] !== translated[element.string])) {
 					    cache[element.string] = translated[element.string];
 					    fileCache[element.string] = translated[element.string];
-						fs.writeFileSync(
-							'./translate/cache/'+name,
-							JSON.stringify(fileCache, null, 2),
-							'utf-8'
-						);
+						handler[1] = true;
 					}
 				    const newEl = {...element};
 				    newEl.string = translated[element.string];
@@ -162,6 +178,19 @@ for (const project of Object.keys(config.projects)) {
 						output,
 						'utf-8'
 					);
+				} else if (!name.includes('.achievements.')) {
+					let output = '';
+					for (const el of out) {
+						output += el.key + '\t' + el.string + '\n';
+					}
+					fs.writeFileSync(
+						'./translate/to/'+name
+							.replace(/.achievements./, '.')
+							.replace(/.json$/, '.txt')
+							.replace('.' + target, '_' + target),
+						output,
+						'utf-8'
+					);
 				} else if (!name.includes('.mcm.')) {
 					if (!fs.existsSync('./translate/to/' + target)) {
 						fs.mkdirSync('./translate/to/' + target);
@@ -172,6 +201,10 @@ for (const project of Object.keys(config.projects)) {
 						'utf-8'
 					);
 				}
+
+				write();
+				handler[0] = () => {};
+				handler[1] = false;
 			}
 		}
 	}
