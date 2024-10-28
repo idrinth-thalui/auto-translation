@@ -10,6 +10,7 @@ const mcmLanguages = {
 	pl: 'POLISH',
 	ru: 'RUSSIAN',
 	zt: 'CHINESE',
+	ja: 'JAPANESE',
 };
 const apiKeys = config.apiKeys;
 const nextRequest = {};
@@ -59,6 +60,36 @@ const handleWrite = () => {
 }
 process.on('SIGINT', handleWrite);
 process.on('SIGTERM', handleWrite);
+
+const sortedFiles = (path) => {
+	return fs
+		.readdirSync(path, 'utf-8')
+		.sort((a, b) => {
+			const partsA = a.split('.');
+			const partsB = b.split('.');
+			if (partsA[0] === partsB[0]) {
+				if (partsA[1].match(/[0-9]+-[0-9]+-[0-9]+/)) {
+					if (partsB[1].match(/[0-9]+-[0-9]+-[0-9]+/)) {
+						const versionA = partsA[1].split('-');
+						const versionB = partsB[1].split('-');
+						if (Number.parseInt(versionA[0]) === Number.parseInt(versionB[0])) {
+							if (Number.parseInt(versionA[1]) === Number.parseInt(versionB[1])) {
+								return Number.parseInt(versionA[2]) - Number.parseInt(versionB[2]);
+							}
+							return Number.parseInt(versionA[1]) - Number.parseInt(versionB[1]);
+						}
+						return Number.parseInt(versionA[0]) - Number.parseInt(versionB[0]);
+					}
+					return -1;
+				}
+				if (partsB[1].match(/[0-9]+-[0-9]+-[0-9]+/)) {
+					return 1;
+				}
+				return partsA[1] < partsB[1] ? 1 : -1;
+			}
+			return partsA[0] < partsB[0] ? 1 : -1;
+		});
+};
 
 for (const project of Object.keys(config.projects)) {
 	for (const target of config.projects[project]) {
@@ -166,37 +197,81 @@ for (const project of Object.keys(config.projects)) {
 					out.push(newEl);
 				}
 				if (name.includes('.mcm.') && typeof mcmLanguages[target] === 'string') {
+					if (!fs.existsSync('./translate/to/mcm')) {
+						fs.mkdirSync('./translate/to/mcm');
+					}
 					let output = '';
 					for (const el of out) {
 						output += el.key + '\t' + el.string + '\n';
 					}
 					fs.writeFileSync(
-						'./translate/to/'+name
+						'./translate/to/mcm/'+name
 							.replace(/.mcm./, '.')
 							.replace(/.json$/, '.txt')
 							.replace('.' + target, '_' + mcmLanguages[target]),
 						output,
 						'utf-8'
 					);
-				} else if (!name.includes('.achievements.')) {
+				} else if (name.includes('.achievements.')) {
+					if (!fs.existsSync('./translate/to/achievements')) {
+						fs.mkdirSync('./translate/to/achievements');
+					}
 					let output = '';
 					for (const el of out) {
 						output += el.key + '\t' + el.string + '\n';
 					}
 					fs.writeFileSync(
-						'./translate/to/'+name
+						'./translate/to/achievements/'+name
 							.replace(/.achievements./, '.')
 							.replace(/.json$/, '.txt')
-							.replace('.' + target, '_' + target),
+							.replace('.' + target, '_' + target.toUpperCase()),
 						output,
 						'utf-8'
 					);
-				} else if (!name.includes('.mcm.')) {
-					if (!fs.existsSync('./translate/to/' + target)) {
-						fs.mkdirSync('./translate/to/' + target);
+				} else if (name.includes('.fomod.')) {
+					if (!fs.existsSync('./translate/to/fomod')) {
+						fs.mkdirSync('./translate/to/fomod');
+					}
+					let output = {};
+					for (const el of out) {
+						if (el.key.startsWith(target+'_')) {
+							output[el.key] = el.string;
+						}
 					}
 					fs.writeFileSync(
-						'./translate/to/' + target + '/'+file,
+						'./translate/to/fomod/'+project+'_'+target+'.json',
+						JSON.stringify(output, null, 2),
+						'utf-8'
+					);
+				} else if (name.includes('.dreams.')) {
+					if (!fs.existsSync('./translate/to/dreams')) {
+						fs.mkdirSync('./translate/to/dreams');
+					}
+					if (!fs.existsSync('./translate/to/dreams/' + target)) {
+						fs.mkdirSync('./translate/to/dreams/' + target);
+					}
+					for (const el of out) {
+						let output = '<fiss><Header><Version>1.2</Version><ModName>' + project + '</ModName></Header><Data><text>';
+						output += el.string + '</text>';
+						for (const prop of Object.keys(el.properties)) {
+							output += '<'+prop+'>'+el.properties[prop]+'</'+prop+'>';
+						}
+						output += '</Data></fiss>';
+						fs.writeFileSync(
+							'./translate/to/dreams/'+target+'/'+el.name+'.xml',
+							output,
+							'utf-8'
+						);
+					}
+				} else if (!name.includes('.mcm.')) {
+					if (!fs.existsSync('./translate/to/dsd')) {
+						fs.mkdirSync('./translate/to/dsd');
+					}
+					if (!fs.existsSync('./translate/to/dsd/' + target)) {
+						fs.mkdirSync('./translate/to/dsd/' + target);
+					}
+					fs.writeFileSync(
+						'./translate/to/dsd/' + target + '/'+file,
 						JSON.stringify(out, null, 2),
 						'utf-8'
 					);
