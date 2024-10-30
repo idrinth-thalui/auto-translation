@@ -98,7 +98,7 @@ for (const project of Object.keys(config.projects)) {
 		const caches = {};
 		const overwrites = [];
 
-		for (const file of fs.readdirSync('./translate/cache', 'utf-8')) {
+		for (const file of sortedFiles('./translate/cache')) {
 			if (file.endsWith('.'+target+'.json') && file.startsWith(project + '.')) {
 				const oldData = JSON.parse(fs.readFileSync('./translate/cache/'+file, 'utf-8'));
 				caches[file] = oldData;
@@ -120,7 +120,7 @@ for (const project of Object.keys(config.projects)) {
 			}
 		}
 
-		for (const file of fs.readdirSync('./translate/from', 'utf-8')) {
+		for (const file of sortedFiles('./translate/from')) {
 			if (file.endsWith('.json') && file.startsWith(project + '.')) {
 				const data = JSON.parse(fs.readFileSync('./translate/from/'+file, 'utf-8'));
 			
@@ -202,7 +202,10 @@ for (const project of Object.keys(config.projects)) {
 					}
 					let output = '';
 					for (const el of out) {
-						output += el.key + '\t' + el.string + '\n';
+						output += el.key + '\t' + el.string;
+						if (out[out.length - 1] !== el) {
+							output  += '\r\n';
+						}
 					}
 					fs.writeFileSync(
 						'./translate/to/mcm/'+name
@@ -210,7 +213,7 @@ for (const project of Object.keys(config.projects)) {
 							.replace(/.json$/, '.txt')
 							.replace('.' + target, '_' + mcmLanguages[target]),
 						output,
-						'utf-8'
+						'utf16le'
 					);
 				} else if (name.includes('.achievements.')) {
 					if (!fs.existsSync('./translate/to/achievements')) {
@@ -218,7 +221,10 @@ for (const project of Object.keys(config.projects)) {
 					}
 					let output = '';
 					for (const el of out) {
-						output += el.key + '\t' + el.string + '\n';
+						output += el.key + '\t' + el.string;
+						if (out[out.length - 1] !== el) {
+							output  += '\n';
+						}
 					}
 					fs.writeFileSync(
 						'./translate/to/achievements/'+name
@@ -226,7 +232,7 @@ for (const project of Object.keys(config.projects)) {
 							.replace(/.json$/, '.txt')
 							.replace('.' + target, '_' + target.toUpperCase()),
 						output,
-						'utf-8'
+						'utf8'
 					);
 				} else if (name.includes('.fomod.')) {
 					if (!fs.existsSync('./translate/to/fomod')) {
@@ -270,9 +276,15 @@ for (const project of Object.keys(config.projects)) {
 					if (!fs.existsSync('./translate/to/dsd/' + target)) {
 						fs.mkdirSync('./translate/to/dsd/' + target);
 					}
+					const noTodos = [];
+					for (const el of out) {
+						if (el.string !== '@TODO') {
+							noTodos.push(el);
+						}
+					}
 					fs.writeFileSync(
 						'./translate/to/dsd/' + target + '/'+file,
-						JSON.stringify(out, null, 2),
+						JSON.stringify(noTodos, null, 2),
 						'utf-8'
 					);
 				}
